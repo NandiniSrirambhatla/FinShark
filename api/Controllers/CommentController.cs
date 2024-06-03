@@ -7,6 +7,7 @@ using api.Interfaces;
 using api.Mappers;
 using api.Models;
 using api.Repository;
+using Azure.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Identity.Client;
 
@@ -16,11 +17,13 @@ namespace api.Controllers
     [Route("api/comments")]
     public class CommentController : ControllerBase
     {
-        private ICommentRepository _commentRepo;
+        private readonly ICommentRepository _commentRepo;
+        private readonly IStockRepository _stockRepo;
 
-        public CommentController(ICommentRepository commentRepo)
+        public CommentController(ICommentRepository commentRepo, IStockRepository stockRepo)
         {
             _commentRepo = commentRepo;
+            _stockRepo = stockRepo;
         }
 
         [HttpGet]
@@ -45,10 +48,15 @@ namespace api.Controllers
 
         }
 
-        [HttpPost]
-        public async Task<IActionResult> AddComment([FromBody] CreateCommentRequestDTO createCommentDTO)
+        [HttpPost("{stockId}")]
+        
+        public async Task<IActionResult> AddComment([FromRoute] int stockId, [FromBody] CreateCommentRequestDTO createCommentDTO)
         {
-            var commentModel = createCommentDTO.ToCommentFromCreateDTO();
+            if(!await _stockRepo.StockExists(stockId)){
+                return BadRequest("Stock does not exist");
+            }
+
+            var commentModel = createCommentDTO.ToCommentFromCreateDTO(stockId);
             await _commentRepo.AddCommentAsync(commentModel);
 
             return CreatedAtAction(nameof(GetCommentById), new { Id = commentModel.Id }, commentModel.ToCommentDTO());
@@ -58,13 +66,13 @@ namespace api.Controllers
         [Route("{id}")]
         public async Task<IActionResult> UpdateComment([FromRoute] int id, [FromBody] UpdateCommentRequestDTO updateCommentDTO)
         {
-            var commentModel = await _commentRepo.UpdateCommentAsync(id, updateCommentDTO);
+            var comment = await _commentRepo.UpdateCommentAsync(id, updateCommentDTO.ToCommentFromUpdateDTO());
 
-            if (commentModel == null)
+            if (comment == null)
             {
-                return NotFound();
+                return NotFound("Comment not found");
             }
-            return Ok(commentModel.ToCommentDTO());
+            return Ok(comment.ToCommentDTO());
         }
 
         [HttpDelete]
@@ -75,7 +83,7 @@ namespace api.Controllers
 
             if (deletedComment == null)
             {
-                return NotFound();
+                return NotFound("Comment not found");
             }
 
             return NoContent();

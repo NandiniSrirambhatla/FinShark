@@ -28,7 +28,7 @@ namespace api.Repository
 
         public async Task<Comment?> DeleteCommentAsync(int id)
         {
-            var comment = _ctx.Comments.Find(id);
+            var comment = await _ctx.Comments.FirstOrDefaultAsync(comment=>comment.Id==id);
             if (comment == null)
             {
                 return null;
@@ -55,7 +55,7 @@ namespace api.Repository
             return comment;
         }
 
-        public async Task<Comment?> UpdateCommentAsync(int id, UpdateCommentRequestDTO updatedComment)
+        public async Task<Comment?> UpdateCommentAsync(int id, Comment updatedComment)
         {
             var existingComment = await _ctx.Comments.FirstOrDefaultAsync(comment => comment.Id == id);
             if(existingComment == null){
@@ -63,9 +63,7 @@ namespace api.Repository
             }
             existingComment.Content = updatedComment.Content;
             existingComment.Title = updatedComment.Title;
-            existingComment.CreatedOn = updatedComment.CreatedOn;
-            existingComment.StockId = updatedComment.StockId;
-
+           
             await _ctx.SaveChangesAsync();
 
             return existingComment;
