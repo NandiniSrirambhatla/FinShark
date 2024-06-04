@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using api.Data;
 using api.DTOs.Stock;
+using api.Helpers;
 using api.Interfaces;
 using api.Models;
 using Microsoft.EntityFrameworkCore;
@@ -39,19 +40,38 @@ namespace api.Repository
 
         }
 
-        public async Task<List<Stock>> GetAllStocksAsync()
+        public async Task<List<Stock>> GetAllStocksAsync(QueryObject query)
         {
-            return await _ctx.Stocks.Include(c=>c.Comments).ToListAsync();
+
+            var stocks = _ctx.Stocks.Include(c => c.Comments).AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(query.CompanyName))
+            {
+                stocks = stocks.Where(stock => stock.CompanyName.Contains(query.CompanyName));
+            }
+            if (!string.IsNullOrWhiteSpace(query.Symbol))
+            {
+                stocks = stocks.Where(Stock => Stock.Symbol.Contains(query.Symbol));
+            }
+            if (!string.IsNullOrWhiteSpace(query.SortBy))
+            {
+                if (query.SortBy.Equals("Symbol", StringComparison.OrdinalIgnoreCase))
+                {
+                    stocks = query.IsDesc ? stocks.OrderByDescending(s => s.Symbol) : stocks.OrderBy(s => s.Symbol);
+                }
+            }
+
+            return await stocks.ToListAsync();
         }
 
         public async Task<Stock?> GetStockByIdAsync(int id)
         {
-            return await _ctx.Stocks.Include(c=>c.Comments).FirstOrDefaultAsync(stock=>stock.Id == id);
+            return await _ctx.Stocks.Include(c => c.Comments).FirstOrDefaultAsync(stock => stock.Id == id);
         }
 
         public async Task<bool> StockExists(int id)
         {
-            return await _ctx.Stocks.AnyAsync(Stock=>Stock.Id == id);
+            return await _ctx.Stocks.AnyAsync(Stock => Stock.Id == id);
         }
 
         public async Task<Stock?> UpdateStockAsync(int id, UpdateStockRequestDTO updateStockDto)
